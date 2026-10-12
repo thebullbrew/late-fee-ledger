@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>The Late-Fee Ledger — Landlord Rent Ledger & Late-Fee Calculator</title>
+<meta name="description" content="A landlord's rent ledger that does the late-fee math your lease already promised: rent charges, payments, grace periods, and automatic fee assessment per your terms.">
+<meta name="theme-color" content="#0F0A07">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<style>
+:root{
+  --bg:#0F0A07; --surface:#1A120C; --surface2:#241811;
+  --text:#F2E9D8; --muted:#C9BBA0; --faint:#8A7B63;
+  --port:#8E2432; --port-deep:#5E1620; --gold:#C9973F; --gold-dim:#8A6A2B;
+  --line:#3A2418; --good:#7FA66B; --bad:#D05A5A;
+  --serif:Georgia,'Palatino Linotype','Times New Roman',serif;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.55;
+  background-image:radial-gradient(ellipse 90% 50% at 50% -5%, rgba(142,36,50,.14), transparent 60%);}
+.wrap{max-width:1060px;margin:0 auto;padding:0 18px 80px}
+header.hero{padding:44px 0 8px;text-align:center}
+.eyebrow{font-size:11px;letter-spacing:.35em;text-transform:uppercase;color:var(--gold);margin-bottom:14px}
+h1{font-family:var(--serif);font-weight:400;font-size:clamp(2rem,5.5vw,3.4rem);color:var(--gold);line-height:1.15}
+h1 .it{font-style:italic}
+.tag{color:var(--muted);max-width:640px;margin:14px auto 0;font-size:1.02rem}
+.tag em{color:var(--text);font-style:normal;border-bottom:1px solid var(--gold-dim)}
+.rule{height:1px;margin:26px auto;max-width:520px;
+  background:linear-gradient(90deg,transparent,var(--gold-dim),transparent)}
+section{margin:26px 0}
+.card{background:linear-gradient(180deg,var(--surface2),var(--surface) 120px);
+  border:1px solid var(--line);border-radius:10px;padding:22px;position:relative}
+.card::before{content:"";position:absolute;top:0;left:10px;right:10px;height:1px;
+  background:repeating-linear-gradient(90deg,var(--gold-dim) 0 6px,transparent 6px 12px);opacity:.5}
+.card h2{font-family:var(--serif);font-weight:400;font-size:1.45rem;color:var(--gold);margin-bottom:4px}
+.card h2 .orn{color:var(--port);margin-right:8px}
+.card .sub{color:var(--faint);font-size:.9rem;margin-bottom:16px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+@media(max-width:760px){.grid2,.grid3,.grid4{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){.grid4{grid-template-columns:1fr 1fr}}
+label{display:block;font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+input,select,textarea{width:100%;background:#0D0806;border:1px solid var(--line);border-radius:6px;
+  color:var(--text);font-size:1rem;padding:10px 12px;font-family:var(--sans)}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--gold)}
+input[type=number]{font-variant-numeric:tabular-nums}
+.hint{font-size:.82rem;color:var(--faint);margin-top:4px}
+.btn{display:inline-block;border:none;cursor:pointer;font-family:var(--serif);font-size:1.02rem;
+  letter-spacing:.04em;padding:12px 22px;border-radius:6px;transition:transform .08s}
+.btn:active{transform:scale(.98)}
+.btn-port{background:linear-gradient(180deg,var(--port),var(--port-deep));color:#F7EEDD;
+  border:1px solid #A83241;box-shadow:0 2px 14px rgba(142,36,50,.35)}
+.btn-port:hover{filter:brightness(1.1)}
+.btn-ghost{background:transparent;color:var(--gold);border:1px solid var(--gold-dim)}
+.btn-ghost:hover{border-color:var(--gold)}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+table{width:100%;border-collapse:collapse;font-size:.93rem}
+th{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);text-align:left;
+  padding:8px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 8px;border-bottom:1px solid #2A1C12;font-variant-numeric:tabular-nums;vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.num,th.num{text-align:right}
+tr.overdue td{background:rgba(142,36,50,.10)}
+.scrollx{overflow-x:auto;margin:0 -6px;padding:0 6px}
+.pill{display:inline-block;font-size:.75rem;letter-spacing:.06em;padding:2px 10px;border-radius:20px;border:1px solid}
+.pill.ok{color:var(--good);border-color:var(--good)}
+.pill.late{color:#E88B8B;border-color:var(--port)}
+.pill.open{color:var(--gold);border-color:var(--gold-dim)}
+.hero-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0}
+.stat{background:linear-gradient(180deg,var(--port),var(--port-deep));border:1px solid #A83241;
+  border-radius:10px;padding:18px 14px;text-align:center}
+.stat .n{font-family:var(--serif);font-size:clamp(1.5rem,4vw,2.3rem);color:#F7EEDD}
+.stat .l{font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:#E8CFA0;margin-top:6px}
+.stat.gold{background:linear-gradient(180deg,#3A2C14,#241C0D);border-color:var(--gold-dim)}
+.stat.gold .n{color:var(--gold)}
+@media(max-width:620px){.hero-stats{grid-template-columns:1fr 1fr}}
+.verdict{background:#0D0806;border:1px solid var(--gold-dim);border-left:4px solid var(--gold);
+  border-radius:6px;padding:16px 18px;font-family:var(--serif);font-size:1.08rem;margin-top:18px}
+.verdict strong{color:var(--gold)}
+.kv{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed #2A1C12;font-size:.95rem}
+.kv:last-child{border-bottom:none}
+.kv .k{color:var(--muted)} .kv .v{font-variant-numeric:tabular-nums;color:var(--text)}
+.clause{background:#0D0806;border:1px solid var(--line);border-radius:6px;padding:18px;
+  font-family:var(--serif);font-size:1.02rem;line-height:1.7;white-space:pre-wrap}
+.list-row{display:flex;justify-content:space-between;align-items:center;padding:10px 4px;border-bottom:1px solid #2A1C12}
+.list-row .nm{font-weight:600}
+.list-row .meta{color:var(--faint);font-size:.85rem}
+.iconbtn{background:none;border:1px solid var(--line);color:var(--muted);border-radius:6px;
+  padding:6px 12px;cursor:pointer;font-size:.85rem}
+.iconbtn:hover{color:var(--gold);border-color:var(--gold-dim)}
+details.method{border:1px solid var(--line);border-radius:8px;padding:14px 18px;background:#120C08}
+details.method summary{cursor:pointer;font-family:var(--serif);color:var(--gold);font-size:1.05rem}
+details.method p{margin-top:10px;color:var(--muted);font-size:.93rem}
+footer{margin-top:50px;text-align:center;color:var(--faint);font-size:.82rem}
+footer .rule{margin:0 auto 18px}
+.badge-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">A landlord's companion</div>
+  <h1>The <span class="it">Late-Fee</span> Ledger</h1>
+  <p class="tag">Your lease already promises the late fee. This ledger <em>remembers</em> it. Log rent charges and payments, and every late fee computes itself — flat fees, per-diem penalties, monthly percentages — against your grace period, with a running balance that never forgets.</p>
+  <div class="rule"></div>
+</header>
+
+<section>
+  <div class="hero-stats">
+    <div class="stat"><div class="n" id="stOwed">$0</div><div class="l">Owed right now</div></div>
+    <div class="stat gold"><div class="n" id="stCollected">$0</div><div class="l">Rent collected</div></div>
+    <div class="stat gold"><div class="n" id="stFees">$0</div><div class="l">Fees assessed</div></div>
+  </div>
+  <div class="hero-stats" style="margin-top:0">
+    <div class="stat gold"><div class="n" id="stOntime">—</div><div class="l">On-time rate</div></div>
+    <div class="stat gold"><div class="n" id="stAvgLate">—</div><div class="l">Avg days late</div></div>
+    <div class="stat gold"><div class="n" id="stOpen">0</div><div class="l">Open charges</div></div>
+  </div>
+</section>
+
+<section>
+  <div class="card">
+    <h2><span class="orn">◆</span>The unit &amp; the lease terms</h2>
+    <div class="sub">One ledger per unit. Set the late-fee rules once — everything else computes itself.</div>
+    <div class="grid2">
+      <div><label>Unit / tenant name</label><input id="tName" value="Unit A — tenant"></div>
+      <div><label>Monthly rent ($)</label><input id="tRent" type="number" min="0" step="1" value="2000"></div>
+      <div><label>Rent due day of month</label><input id="tDueDay" type="number" min="1" max="28" value="1"></div>
+      <div><label>Grace period (days)</label><input id="tGrace" type="number" min="0" max="30" value="5">
+        <div class="hint">No fee if paid on or before due date + grace.</div></div>
+    </div>
+    <div class="rule" style="margin:18px auto"></div>
+    <div class="grid3">
+      <div><label>Flat late fee ($)</label><input id="tFlat" type="number" min="0" step="1" value="75">
+        <div class="hint">One-time fee, triggered the day after grace ends.</div></div>
+      <div><label>Per-diem after grace ($/day)</label><input id="tPerDiem" type="number" min="0" step="1" value="10">
+        <div class="hint">Accrues daily until the balance is paid.</div></div>
+      <div><label>Monthly % on late balance</label><input id="tPct" type="number" min="0" max="25" step="0.5" value="5">
+        <div class="hint">% of the unpaid balance per 30 days late, on top of flat + per-diem.</div></div>
+    </div>
+    <div class="grid2" style="margin-top:14px">
+      <div><label>Fee cap per charge ($, 0 = none)</label><input id="tCap" type="number" min="0" step="1" value="0">
+        <div class="hint">Many states cap late fees. Set it and the ledger obeys.</div></div>
+      <div><label>Payments apply to</label>
+        <select id="tOrder"><option value="oldest">Oldest charge first (standard)</option><option value="newest">Newest charge first</option></select>
+        <div class="hint">Landlord convention: oldest first, so fees stop accruing.</div></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-port" id="btnSaveTerms">Save unit &amp; terms</button>
+      <button class="btn btn-ghost" id="btnNewUnit">＋ New unit</button>
+    </div>
+    <div style="margin-top:16px"><label>Saved units</label><div id="unitList"></div></div>
+  </div>
+</section>
+
+<section>
+  <div class="card">
+    <h2><span class="orn">◆</span>Rent charges</h2>
+    <div class="sub">Generate the year's charges in one tap, or add one-offs (garage, pet rent, utilities).</div>
+    <div class="grid3">
+      <div><label>First charge month</label><input id="cStart" type="month"></div>
+      <div><label>Months to generate</label><input id="cCount" type="number" min="1" max="36" value="12"></div>
+      <div><label>Amount ($)</label><input id="cAmt" type="number" min="0" step="1" placeholder="defaults to monthly rent"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-port" id="btnGen">Generate charges</button>
+      <button class="btn btn-ghost" id="btnAddCharge">＋ One-off charge</button>
+    </div>
+    <div class="hint" style="margin-top:8px">Charges already existing for a generated month are skipped — run it again any time.</div>
+  </div>
+</section>
+
+<section>
+  <div class="card">
+    <h2><span class="orn">◆</span>Log a payment</h2>
+    <div class="sub">Cash, check, Zelle, ACH — the ledger only cares about the date and the dollars.</div>
+    <div class="grid3">
+      <div><label>Date received</label><input id="pDate" type="date"></div>
+      <div><label>Amount ($)</label><input id="pAmt" type="number" min="0" step="0.01"></div>
+      <div><label>Note (optional)</label><input id="pNote" placeholder="check #1042"></div>
+    </div>
+    <div class="btn-row"><button class="btn btn-port" id="btnAddPay">Record payment</button></div>
+  </div>
+</section>
+
+<section>
+  <div class="card">
+    <h2><span class="orn">◆</span>The ledger</h2>
+    <div class="sub">Every charge, its payments, how late it ran, and the fee the lease says is owed. Red rows are still bleeding.</div>
+    <div class="scrollx"><table>
+      <thead><tr><th>Period</th><th>Due</th><th class="num">Charge</th><th>Paid</th><th>Status</th><th class="num">Days late</th><th class="num">Fee</th><th class="num">Balance</th><th></th></tr></thead>
+      <tbody id="ledgerBody"></tbody>
+    </table></div>
+    <div class="verdict" id="verdict"></div>
+  </div>
+</section>
+
+<section>
+  <div class="card">
+    <h2><span class="orn">◆</span>Payments received</h2>
+    <div class="sub">The paper trail. Tap copy for a receipt you can text the tenant.</div>
+    <div id="payList"></div>
+  </div>
+</section>
+
+<section>
+  <div class="grid2">
+    <div class="card">
+      <h2><span class="orn">◆</span>Lease clause builder</h2>
+      <div class="sub">Your terms, turned into enforceable lease language. Have a lawyer glance at it once — then reuse it forever.</div>
+      <div class="clause" id="clauseText"></div>
+      <div class="btn-row"><button class="btn btn-ghost" id="btnCopyClause">Copy clause</button></div>
+    </div>
+    <div class="card">
+      <h2><span class="orn">◆</span>Records &amp; exports</h2>
+      <div class="sub">Tax season, court day, or a sale — the numbers, portable.</div>
+      <div class="btn-row">
+        <button class="btn btn-port" id="btnCopySummary">Copy landlord summary</button>
+        <button class="btn btn-ghost" id="btnCSV">Export CSV</button>
+      </div>
+      <div style="margin-top:16px">
+        <div class="kv"><span class="k">Total rent charged</span><span class="v" id="kvCharged">—</span></div>
+        <div class="kv"><span class="k">Total rent collected</span><span class="v" id="kvCollected">—</span></div>
+        <div class="kv"><span class="k">Total late fees assessed</span><span class="v" id="kvFees">—</span></div>
+        <div class="kv"><span class="k">Fees still owed</span><span class="v" id="kvFeesOwed">—</span></div>
+        <div class="kv"><span class="k">Balance outstanding</span><span class="v" id="kvBalance">—</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+<details class="method">
+  <summary>The method — how the ledger thinks</summary>
+  <p><b>Payments apply oldest-first.</b> When money comes in, it kills the oldest open charge first — that stops per-diem fees from accruing on the longest-running debt. It's the landlord-friendly convention, and it's how courts tend to apply partial rent.</p>
+  <p><b>Fees trigger the day after grace ends.</b> Paid on or before due date + grace = zero fees, no exceptions. One day past grace = the full flat fee, plus per-diem for every day past grace until that charge is fully paid, plus the monthly percentage on the balance still outstanding every 30 days.</p>
+  <p><b>Unpaid charges accrue.</b> A charge nobody has paid keeps growing its per-diem and monthly percentage fees up to today's date — that's the "still bleeding" red row. The fee cap, if you set one, is the ceiling per charge.</p>
+  <p><b>Days late measures settlement, not arrival.</b> A partial payment doesn't stop the clock — days late counts from the end of grace until the charge is <i>fully</i> settled. That's why paying in dribs and drabs is expensive: every day of delay is per-diem.</p>
+</details>
+</section>
+
+<footer>
+  <div class="rule"></div>
+  <p>The Late-Fee Ledger · a daily finance &amp; real-estate tool by <b>thebullbrew</b> · numbers stay in your browser, nothing is sent anywhere.</p>
+</footer>
+</div>
+
+<script>
+"use strict";
+/* The Late-Fee Ledger — FIFO rent ledger with automatic late-fee assessment. */
+const KEY="late-fee-ledger-v1", DAY=86400000;
+const $=id=>document.getElementById(id);
+const money=n=>"$"+Math.round(n).toLocaleString("en-US");
+const money2=n=>"$"+n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const dstr=d=>d.toISOString().slice(0,10);
+const pdate=s=>{const[y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d);};
+const today=()=>{const n=new Date();return new Date(n.getFullYear(),n.getMonth(),n.getDate());};
+
+function blankUnit(name){return {name:name||"Unit A — tenant",rent:2000,dueDay:1,grace:5,
+  flat:75,perDiem:10,pct:5,cap:0,order:"oldest",charges:[],payments:[]};}
+let S={units:[blankUnit()],active:0};
+function save(){localStorage.setItem(KEY,JSON.stringify(S));}
+function load(){try{const r=JSON.parse(localStorage.getItem(KEY));if(r&&r.units&&r.units.length){S=r;}}catch(e){}}
+function U(){return S.units[S.active];}
+
+/* ---------- fee math ---------- */
+/* Apply payments to charges (FIFO oldest / newest) and return per-charge results. */
+function compute(u){
+  const t0=today().getTime();
+  const ch=[...u.charges].sort((a,b)=>a.due<b.due?-1:1);
+  const pays=[...u.payments].sort((a,b)=>a.date<b.date?-1:1);
+  const res=ch.map(c=>({...c,alloc:[],paidTotal:0}));
+  const byId=Object.fromEntries(res.map(r=>[r.id,r]));
+  let i=0, order=[...res];
+  if(u.order==="newest") order.reverse();
+  for(const p of pays){
+    let amt=p.amount;
+    for(const c of order){
+      if(amt<=0.001) break;
+      const need=c.amount-c.paidTotal;
+      if(need>0.001){
+        const take=Math.min(need,amt);
+        c.alloc.push({date:p.date,amount:take,note:p.note||""});
+        c.paidTotal+=take; amt-=take;
+      }
+    }
+  }
+  for(const c of res){
+    const due=pdate(c.due), graceEnd=new Date(due.getTime()+u.grace*DAY);
+    const settle=c.paidTotal>=c.amount-0.001
+      ? c.alloc[c.alloc.length-1].date : dstr(new Date(t0));
+    const daysLate=Math.max(0,Math.round((pdate(settle)-graceEnd)/DAY));
+    let fee=0;
+    if(daysLate>0){
+      fee+=u.flat;
+      fee+=u.perDiem*daysLate;
+      fee+=c.amount*(u.pct/100)*Math.ceil(daysLate/30);
+      if(u.cap>0) fee=Math.min(fee,u.cap);
+    }
+    c.settle=c.paidTotal>=c.amount-0.001?settle:null;
+    c.daysLate=daysLate; c.fee=Math.round(fee*100)/100;
+    c.balance=Math.round((c.amount+c.fee-c.paidTotal)*100)/100;
+    c.paidInFull=c.paidTotal>=c.amount-0.001;
+  }
+  return res;
+}
+
+/* ---------- rendering ---------- */
+function render(){
+  const u=U();
+  $("tName").value=u.name; $("tRent").value=u.rent; $("tDueDay").value=u.dueDay;
+  $("tGrace").value=u.grace; $("tFlat").value=u.flat; $("tPerDiem").value=u.perDiem;
+  $("tPct").value=u.pct; $("tCap").value=u.cap; $("tOrder").value=u.order||"oldest";
+  const rows=compute(u);
+  let charged=0,collected=0,fees=0,feesOwed=0,balance=0,lateSum=0,lateN=0,ontime=0,settled=0,open=0;
+  let html="";
+  for(const c of rows){
+    charged+=c.amount; collected+=c.paidTotal; fees+=c.fee;
+    const st=c.paidInFull?'<span class="pill ok">Settled</span>'
+      :(c.paidTotal>0.001?'<span class="pill open">Partial</span>':'<span class="pill late">Open</span>');
+    const trCls=(!c.paidInFull&&c.daysLate>0)?' class="overdue"':'';
+    const paidTxt=c.alloc.length?c.alloc.map(a=>dstr(pdate(a.date)).slice(5)+" · "+money2(a.amount)).join("<br>"):"—";
+    const bal=c.balance;
+    if(!c.paidInFull&&c.daysLate>0){balance+=bal;feesOwed+=c.fee;open++;}
+    else if(!c.paidInFull){balance+=bal;feesOwed+=c.fee;open++;}
+    if(c.paidInFull){settled++;lateSum+=c.daysLate;lateN++;if(c.daysLate===0)ontime++;}
+    html+=`<tr${trCls}><td>${c.period}</td><td>${c.due}</td><td class="num">${money(c.amount)}</td>
+      <td>${paidTxt}</td><td>${st}</td><td class="num">${c.daysLate||"—"}</td>
+      <td class="num">${c.fee?money(c.fee):"—"}</td><td class="num"><b>${bal>0.009?money(bal):"—"}</b></td>
+      <td><button class="iconbtn" data-del="${c.id}">✕</button></td></tr>`;
+  }
+  $("ledgerBody").innerHTML=html||'<tr><td colspan="9" style="color:var(--faint)">No charges yet — generate them above.</td></tr>';
+
+  $("stOwed").textContent=money(balance);
+  $("stCollected").textContent=money(collected);
+  $("stFees").textContent=money(fees);
+  $("stOntime").textContent=settled?Math.round(100*ontime/settled)+"%":"—";
+  $("stAvgLate").textContent=lateN?(lateSum/lateN).toFixed(1)+"d":"—";
+  $("stOpen").textContent=open;
+  $("kvCharged").textContent=money(charged);
+  $("kvCollected").textContent=money(collected);
+  $("kvFees").textContent=money(fees);
+  $("kvFeesOwed").textContent=money(feesOwed);
+  $("kvBalance").textContent=money(balance);
+
+  $("verdict").innerHTML = balance>0.009
+    ? `<strong>${money(balance)} is still on the table.</strong> ${open} open charge${open>1?"s":""}${feesOwed>0.009?", including "+money(feesOwed)+" in late fees your lease says is yours":""}. The per-diem keeps running on anything past grace — silence is the expensive option.`
+    : `<strong>Clean book.</strong> Every charge is settled${settled?" and "+settled+" payment"+(settled>1?"s":"")+" are on record":""}. This is what a professional operation looks like — keep the paper trail.`;
+
+  /* payments list */
+  const pl=[...u.payments].sort((a,b)=>a.date<b.date?-1:1);
+  $("payList").innerHTML=pl.length?pl.map(p=>
+    `<div class="list-row"><div><span class="nm">${money2(p.amount)}</span> <span class="meta">· ${p.date}${p.note?" · "+esc(p.note):""}</span></div>
+     <div><button class="iconbtn" data-rcp="${p.id}">Copy receipt</button> <button class="iconbtn" data-pdel="${p.id}">✕</button></div></div>`
+  ).join(""):'<p style="color:var(--faint)">No payments logged yet.</p>';
+
+  /* clause */
+  const bits=[`Rent of ${money(u.rent)} is due on the ${ord(u.dueDay)} of each month`,
+    `a grace period of ${u.grace} day${u.grace===1?"":"s"} applies`,
+    u.flat?`a one-time late fee of ${money(u.flat)} is assessed the day after the grace period ends`:"",
+    u.perDiem?`an additional ${money(u.perDiem)} per day accrues for each day the rent remains unpaid past the grace period`:"",
+    u.pct?`an additional ${u.pct}% of the unpaid balance accrues per 30-day period of delinquency`:"",
+    u.cap?`total late fees per month's rent are capped at ${money(u.cap)}`:""].filter(Boolean);
+  $("clauseText").textContent="LATE PAYMENT. "+bits.join("; ").replace(/\.\s*;?/g,". ")+". Payments are applied to the oldest outstanding rent first. Late fees are rent for all purposes, including eviction for non-payment.";
+
+  /* units */
+  $("unitList").innerHTML=S.units.map((x,i)=>{
+    const r=compute(x); const bal=r.reduce((s,c)=>s+(c.paidInFull?0:c.balance),0);
+    return `<div class="list-row"><div><span class="nm">${esc(x.name)}</span> <span class="meta">· ${money(x.rent)}/mo · bal ${money(bal)}</span></div>
+    <div><button class="iconbtn" data-use="${i}">${i===S.active?"● Active":"Use"}</button>${S.units.length>1?` <button class="iconbtn" data-udel="${i}">✕</button>`:""}</div></div>`;
+  }).join("");
+}
+function ord(n){const s=["th","st","nd","rd"],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+
+/* ---------- events ---------- */
+function readTerms(){
+  const u=U();
+  u.name=$("tName").value.trim()||"Unit A — tenant";
+  u.rent=+$("tRent").value||0; u.dueDay=Math.min(28,Math.max(1,+$("tDueDay").value||1));
+  u.grace=+$("tGrace").value||0; u.flat=+$("tFlat").value||0;
+  u.perDiem=+$("tPerDiem").value||0; u.pct=+$("tPct").value||0;
+  u.cap=+$("tCap").value||0; u.order=$("tOrder").value;
+  save(); render();
+}
+$("btnSaveTerms").onclick=readTerms;
+
+$("btnNewUnit").onclick=()=>{readTermsSilent();S.units.push(blankUnit("Unit "+String.fromCharCode(65+S.units.length)+" — tenant"));S.active=S.units.length-1;save();render();};
+function readTermsSilent(){try{readTerms0()}catch(e){}}
+function readTerms0(){const u=U();u.name=$("tName").value.trim()||u.name;u.rent=+$("tRent").value||u.rent;
+  u.dueDay=Math.min(28,Math.max(1,+$("tDueDay").value||1));u.grace=+$("tGrace").value||0;
+  u.flat=+$("tFlat").value||0;u.perDiem=+$("tPerDiem").value||0;u.pct=+$("tPct").value||0;
+  u.cap=+$("tCap").value||0;u.order=$("tOrder").value;}
+
+$("btnGen").onclick=()=>{
+  const u=U();
+  let [y,m]=($("cStart").value||dstr(today()).slice(0,7)).split("-").map(Number);
+  const n=+$("cCount").value||12, amt=+$("cAmt").value||u.rent;
+  const have=new Set(u.charges.map(c=>c.period));
+  for(let k=0;k<n;k++){
+    const yy=y+Math.floor((m-1+k)/12), mm=(m-1+k)%12+1;
+    const period=yy+"-"+String(mm).padStart(2,"0");
+    if(have.has(period)) continue;
+    const due=new Date(yy,mm-1,Math.min(u.dueDay,28));
+    u.charges.push({id:"c"+Date.now()+k,period,due:dstr(due),amount:amt});
+  }
+  u.charges.sort((a,b)=>a.due<b.due?-1:1);
+  save(); render();
+};
+$("btnAddCharge").onclick=()=>{
+  const u=U();const amt=+$("cAmt").value;
+  if(!amt){alert("Enter an amount for the one-off charge first.");return;}
+  const t=today();
+  u.charges.push({id:"c"+Date.now(),period:dstr(t).slice(0,7)+" (one-off)",due:dstr(t),amount:amt});
+  save(); render();
+};
+$("btnAddPay").onclick=()=>{
+  const u=U();
+  const amt=+$("pAmt").value, dt=$("pDate").value||dstr(today());
+  if(!amt){alert("Enter the payment amount.");return;}
+  u.payments.push({id:"p"+Date.now(),date:dt,amount:amt,note:$("pNote").value.trim()});
+  $("pAmt").value="";$("pNote").value="";
+  save(); render();
+};
+document.addEventListener("click",e=>{
+  const t=e.target.dataset;
+  const u=U();
+  if(t.del){u.charges=u.charges.filter(c=>c.id!==t.del);save();render();}
+  if(t.pdel){u.payments=u.payments.filter(p=>p.id!==t.pdel);save();render();}
+  if(t.use){readTermsSilent();S.active=+t.use;save();render();}
+  if(t.udel){S.units.splice(+t.udel,1);S.active=Math.max(0,S.active-1);save();render();}
+  if(t.rcp){const p=u.payments.find(x=>x.id===t.rcp);
+    copyText(`RENT RECEIPT — ${u.name}\nReceived ${money2(p.amount)} on ${p.date}${p.note?" ("+p.note+")":""}.\nApplied to oldest outstanding rent per lease terms.\n— thebullbrew`,"Receipt copied — text it to the tenant.");}
+});
+$("btnCopyClause").onclick=()=>copyText($("clauseText").textContent,"Lease clause copied.");
+$("btnCopySummary").onclick=()=>{
+  const u=U(),r=compute(u);
+  const lines=[`RENT LEDGER — ${u.name}`,`Terms: ${money(u.rent)}/mo, due ${ord(u.dueDay)}, ${u.grace}-day grace, flat ${money(u.flat)}, per-diem ${money(u.perDiem)}/day, ${u.pct}% per 30d${u.cap?", cap "+money(u.cap):""}.`,""];
+  for(const c of r) lines.push(`${c.period} · due ${c.due} · ${money(c.amount)} · paid ${money(c.paidTotal)} · days late ${c.daysLate} · fee ${money(c.fee)} · balance ${money(c.balance)}`);
+  const tot=r.reduce((s,c)=>s+c.balance,0);
+  lines.push("",`TOTAL OUTSTANDING: ${money(tot)}`);
+  copyText(lines.join("\n"),"Summary copied.");
+};
+$("btnCSV").onclick=()=>{
+  const u=U(),r=compute(u);
+  const head="period,due_date,charge,paid_total,days_late,fee,balance\n";
+  const body=r.map(c=>[c.period,c.due,c.amount,c.paidTotal,c.daysLate,c.fee,c.balance.toFixed(2)].join(",")).join("\n");
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([head+body],{type:"text/csv"}));
+  a.download="rent-ledger-"+u.name.replace(/[^a-z0-9]+/gi,"-").toLowerCase()+".csv";a.click();
+};
+function copyText(txt,msg){
+  navigator.clipboard.writeText(txt).then(()=>alert(msg)).catch(()=>{prompt("Copy:",txt);});
+}
+
+/* ---------- pwa ---------- */
+if("serviceWorker" in navigator) addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+
+/* ---------- init ---------- */
+load();
+$("cStart").value=dstr(today()).slice(0,7);
+$("pDate").value=dstr(today());
+render();
+</script>
+</body>
+</html>
